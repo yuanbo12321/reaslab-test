@@ -24,7 +24,7 @@ async function openMilGettingStartedLean(page: Page): Promise<void> {
   }
 }
 
-test.describe("8. 使用模板创建定理证明项目并完成证明工作", () => {
+test.describe("8. 模板创建定理证明项目", () => {
   test.describe.configure({ mode: "serial" });
   /** 首条经 MIL 拉取时 lake/缓存可达数十分钟。 */
   test.setTimeout(600_000);

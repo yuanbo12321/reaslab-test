@@ -475,15 +475,15 @@ export const MIL_GETTING_STARTED_SEGMENTS = ["MIL", "C01_Introduction", "S01_Get
 export const MODELING_CH5_SKIP_MSG =
   "无法进入数学建模 IDE：请确认已登录且 New Project 可创建 Modeling 项目，或 test/data/.e2e-artifacts/modeling-project-uuid.txt 仍有效。";
 
-/** `docs/用户场景.md` §7：从「Optimization Modeling Templates」创建项目失败时的跳过说明。 */
+/** `docs/用户场景.md` §7「模板创建优化建模项目」：从「Optimization Modeling Templates」创建项目失败时的跳过说明。 */
 export const MODELING_CH7_SKIP_MSG =
   "无法从优化建模模板进入数学建模 IDE：请确认已登录、模板服务可用，或 test/data/.e2e-artifacts/optimization-template-project-uuid.txt 仍有效。";
 
-/** `docs/用户场景.md` §9：从「Math Modeling Contest Templates」创建项目失败时的跳过说明。 */
+/** `docs/用户场景.md` §9「模板创建竞赛建模项目」：从「Math Modeling Contest Templates」创建项目失败时的跳过说明。 */
 export const MODELING_CH9_SKIP_MSG =
   "无法从数学建模竞赛模板进入建模 IDE：请确认已登录、竞赛模板服务可用，或 test/data/.e2e-artifacts/modeling-contest-template-project-uuid.txt 仍有效。";
 
-/** `docs/用户场景.md` §8：MIL 定理证明模板 IDE 不可用时的跳过说明（与 `tryEnterLeanProjectIde` / `theorem-project-uuid.txt` 一致）。 */
+/** `docs/用户场景.md` §8「模板创建定理证明项目」：MIL 定理证明模板 IDE 不可用时的跳过说明（与 `tryEnterLeanProjectIde` / `theorem-project-uuid.txt` 一致）。 */
 export const THEOREM_CH8_SKIP_MSG =
   "无法进入 MIL 定理证明 IDE：请确认已登录且 Theorem Proving Templates → Mathematics in Lean → Use Template 可用（首次 lake 可能极慢），或 test/data/.e2e-artifacts/theorem-project-uuid.txt 仍有效。";
 

@@ -7,7 +7,7 @@ import {
   tryEnterOptimizationTemplateModelingIde,
 } from "./helpers";
 
-test.describe("7. 使用模板创建优化建模项目并完成建模工作", () => {
+test.describe("7. 模板创建优化建模项目", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(600_000);
 

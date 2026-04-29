@@ -7,7 +7,7 @@ import {
   tryEnterContestTemplateModelingIde,
 } from "./helpers";
 
-test.describe("9. 使用模板创建竞赛建模项目并完成建模工作", () => {
+test.describe("9. 模板创建竞赛建模项目", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(600_000);
 
