@@ -4,7 +4,7 @@
  * 报告链接：可选 `node send-results/send-feishu.mjs <报告URL>`（有 URL 时发 **interactive** 卡片，带「打开报告」按钮；摘要正文不再含可点击 URL 行）。
  * 摘要 JSON：固定 `test-results/e2e-results.json`。
  * **被测网站 URL**：环境变量 **`E2E_BASE_URL`**（未设置时读 **`common/global-setup.ts`** 的 **`E2E_BASE_URL_DEFAULT`**）用于 **卡片 header 副标题**；摘要正文不再写「被测网站:…」与「--- 报告摘要 ---」。测 `localhost:3000` 时请先 `export E2E_BASE_URL=…` 再跑 `run.mjs`（子进程会继承）。
- * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **程序汇总**；有报告 URL 的 **interactive** 卡片用飞书 **`table`** 组件展示「场景｜功能点」（首列 **固定 px** 宽：按最长场景标题 **「5. 创建空白项目并使用基础功能」** 与当前行文案取较大者估算，避免首列换行；**左对齐**、**顶对齐**，**`row_height: low`**）；**`msg_type: text`** 或无章节数据时仍可用 **GFM 表**（`| :--- | :--- |`，两列左对齐）。多行功能点用 **`<br/>`**。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（程序级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
+ * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **程序汇总**；有报告 URL 的 **interactive** 卡片用飞书 **`table`** 展示「场景｜功能点」（首列 **约 40%**、次列 **约 60%**，随卡片宽度伸缩，避免固定 px 在窄端占满挤压功能点；**左对齐**、**顶对齐**，**`row_height: low`**）；**`msg_type: text`** 或无章节数据时仍可用 **GFM 表**（`| :--- | :--- |`）。多行功能点用 **`<br/>`**。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（程序级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
  * **飞书 `code=11232` 频率限制**：自动退避重试（默认最多 **6** 次发送，可用 **`FEISHU_WEBHOOK_MAX_ATTEMPTS`** 覆盖，上限 12）。 */
 import fs from "node:fs";
 import path from "node:path";
@@ -193,25 +193,6 @@ function stripLeadingProgramHeadingFromCaseTitle(title, programHeading) {
 
 /** 每条用例最多列出的功能点条数（超出则提示见 HTML）。 */
 const MAX_FEATURE_ROWS_PER_PROGRAM = 40;
-
-/** 用户场景里已知最长的「场景」列文案，表首列宽度下限按此保证单行不换行（飞书列宽 [80px,600px]）。 */
-const FEISHU_SCENARIO_COL_WIDTH_REF_TITLE = "5. 创建空白项目并使用基础功能";
-
-/**
- * 飞书 `table` 首列宽度：在参考最长标题与当前各 `heading` 中取最大字符数，换算为 px（偏保守，适配 14px 级正文字号）。
- * @param {{ heading: string }[]} scenarioRows
- */
-function feishuScenarioColumnWidthPx(scenarioRows) {
-  let maxChars = FEISHU_SCENARIO_COL_WIDTH_REF_TITLE.length;
-  for (const row of scenarioRows) {
-    const L = String(row?.heading ?? "").length;
-    if (L > maxChars) {
-      maxChars = L;
-    }
-  }
-  const px = Math.min(600, Math.max(80, Math.ceil(maxChars * 19 + 56)));
-  return `${px}px`;
-}
 
 /**
  * 按 `test/NN-*.test.ts` 收集各功能点标题与结果色类（与 Playwright JSON suite 树一致）。
@@ -512,7 +493,7 @@ function buildFeishuProgramSummaryTableElement(scenarioRows) {
       {
         name: "scenario",
         display_name: "场景",
-        width: feishuScenarioColumnWidthPx(scenarioRows),
+        width: "40%",
         data_type: "markdown",
         vertical_align: "top",
         horizontal_align: "left",
@@ -520,7 +501,7 @@ function buildFeishuProgramSummaryTableElement(scenarioRows) {
       {
         name: "features",
         display_name: "功能点",
-        width: "auto",
+        width: "60%",
         data_type: "markdown",
         vertical_align: "top",
         horizontal_align: "left",
