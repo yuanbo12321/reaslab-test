@@ -28,8 +28,8 @@ export async function navigateToHomeProjects(page: Page): Promise<void> {
 export const E2E_DEFAULT_IMPORT_GIT_URL =
   "https://github.com/leanprover-community/flt-regular.git" as const;
 
-const IMPORT_GIT_IDE_NAV_TIMEOUT_MS = 1_800_000; // 30 min：服务端 clone + 重定向
-const IMPORT_GIT_IDE_SHELL_TIMEOUT_MS = 1_800_000; // 30 min：toolchain / lake / 缓存
+const IMPORT_GIT_IDE_NAV_TIMEOUT_MS = 600_000; // 10 min：服务端 clone + 重定向
+const IMPORT_GIT_IDE_SHELL_TIMEOUT_MS = 600_000; // 10 min：toolchain / lake / 缓存
 
 /**
  * 工作台 **`/?nav=import-git`** → **Manual Import**：填写仓库 URL 与项目名 → **Import Project**，
@@ -256,7 +256,7 @@ export async function ensureReasLingoVisible(page: Page): Promise<void> {
 }
 
 /**
- * 将本地文件上传到项目的 **`chat-uploads/`** 下，供 §5.2 等 ReasLingo 用例使用。
+ * 将本地文件上传到项目的 **`chat-uploads/`** 下，供 §5.2～§5.4 等 ReasLingo 用例使用。
  *
  * **与当前产品、手动成功路径一致**：左侧 Explore 工具栏 **`title="Upload Files"`**（`file-tree-toolbar`）
  * → 弹窗标题 **「Upload Files」**（`upload-dialog.tsx`）→ 对隐藏 file input 做 **`setInputFiles`**
@@ -323,11 +323,92 @@ async function ensureChatUploadsFolderInIdeFileTree(page: Page): Promise<void> {
   await expect(tree.getByRole("row", { name: /chat-uploads/i }).first()).toBeVisible({ timeout: 60_000 });
 }
 
-/** 在可见 `.ide-filetree` 中点击匹配 `rowLabel` 的 `row`（用于展开 **`chat-uploads`** 等文件夹）。无匹配则跳过。 */
+/** 在可见 `.ide-filetree` 中展开匹配 `rowLabel` 的文件夹行。无匹配则跳过。 */
 export async function expandIdeFileTreeRowByLabel(page: Page, rowLabel: string | RegExp): Promise<void> {
-  const tree = page.locator(".ide-filetree").filter({ visible: true }).first();
-  const row = tree.getByRole("row", { name: rowLabel }).first();
+  const shell = page.locator(".ide-filetree").filter({ visible: true }).first();
+
+  const basenameMatches = (basename: string | null): boolean => {
+    if (!basename) {
+      return false;
+    }
+    return typeof rowLabel === "string" ? basename === rowLabel : rowLabel.test(basename);
+  };
+
+  /**
+   * `@reaslab/file-tree`（iipe / beta）：`Tree` + `TreeItem` 渲染为 **treegrid**，展开控件为
+   * **`<Button slot="chevron" data-tree-chevron>`**（Hugeicons，**无** `lucide-chevron-right`），且 **无** `data-filetree-node`。
+   *
+   * **幂等**：`aria-expanded="true"` 时不再点 chevron，避免「上传前已展开 → 上传后再 expand 实为收起」导致子文件从 DOM 消失。
+   */
+  let treeGrid = shell.getByRole("treegrid", { name: /file tree/i }).first();
+  if ((await treeGrid.count()) === 0) {
+    treeGrid = shell.getByRole("treegrid").first();
+  }
+  if ((await treeGrid.count()) > 0) {
+    const row = treeGrid.getByRole("row", { name: rowLabel }).first();
+    if ((await row.count()) > 0) {
+      const expanded = await row.getAttribute("aria-expanded");
+      if (expanded === "true") {
+        return;
+      }
+      const racChevron = row.locator("[data-tree-chevron]").first();
+      if ((await racChevron.count()) > 0) {
+        await racChevron.scrollIntoViewIfNeeded();
+        await racChevron.click({ force: true });
+        return;
+      }
+      const expandBtn = row.getByRole("button", { name: /Expand/i }).first();
+      if ((await expandBtn.count()) > 0) {
+        await expandBtn.scrollIntoViewIfNeeded();
+        await expandBtn.click({ force: true });
+        return;
+      }
+      try {
+        await row.focus({ timeout: 5_000 });
+      } catch {
+        /* ignore */
+      }
+      await page.keyboard.press("ArrowRight");
+      return;
+    }
+  }
+
+  /**
+   * `reaslab-uni`：`DirNode` 根节点带 **`data-filetree-node` + `data-node-basename`**，展开为
+   * **`svg.lucide-chevron-right`** 或整行 **`.ide-filetree-content`** 点击（`toggleDir`）。
+   */
+  const uniNodes = shell.locator("[data-filetree-node='true'][data-node-basename]");
+  for (let i = 0; i < (await uniNodes.count()); i++) {
+    const node = uniNodes.nth(i);
+    const base = await node.getAttribute("data-node-basename");
+    if (!basenameMatches(base)) {
+      continue;
+    }
+    const lucideChevron = node
+      .locator("svg.lucide-chevron-right, svg[class*='chevron-right']")
+      .first();
+    if ((await lucideChevron.count()) > 0) {
+      await lucideChevron.scrollIntoViewIfNeeded();
+      await lucideChevron.click({ force: true });
+      return;
+    }
+    const content = node.locator(".ide-filetree-content").first();
+    if ((await content.count()) > 0) {
+      await content.scrollIntoViewIfNeeded();
+      await content.click({ force: true });
+      return;
+    }
+  }
+
+  /** 兜底：仅在 shell 上找 row（无嵌套 treegrid 的旧布局）。 */
+  const row = shell.getByRole("row", { name: rowLabel }).first();
   if ((await row.count()) === 0) {
+    return;
+  }
+  const expandBtn = row.getByRole("button", { name: /Expand/i }).first();
+  if ((await expandBtn.count()) > 0) {
+    await expandBtn.scrollIntoViewIfNeeded();
+    await expandBtn.click({ force: true });
     return;
   }
   await row.click();
@@ -341,7 +422,7 @@ export async function waitForReasLingoAssistantReplyDone(page: Page): Promise<vo
 
 /**
  * `docs/用户场景.md` §6～§9：侧栏 ReasLingo，发送 **`who are you?`**，并等待本轮助理输出结束（与 `waitForReasLingoAssistantReplyDone` 一致）。
- * `agentMenuLabel` 为 **`null`** 时不打开 Agent 菜单（保持默认 Agent）；否则在 **Switch Agent** 中选首条匹配项。
+ * `agentMenuLabel` 为 **`null`** 时不打开 Agent 菜单（保持默认 Agent）；否则在 **Agent / Switch Agent** 触发器菜单中选首条匹配项。
  *
  * @returns 若指定了 `agentMenuLabel` 但菜单中无匹配项，返回 **`false`**（调用方宜 `test.skip`）；否则返回 **`true`**。
  */
@@ -350,15 +431,17 @@ export async function reasLingoWhoAreYouProbe(
   agentMenuLabel: RegExp | null,
 ): Promise<boolean> {
   await ensureReasLingoVisible(page);
-  const host = page.locator('[data-sidebar="group"]').filter({
-    has: page.locator('button[title="Switch Agent"]'),
-  });
+  const host = page
+    .locator('[data-sidebar="group"]')
+    .filter({ has: page.getByText("ReasLingo", { exact: true }) })
+    .filter({ has: page.getByTitle("Add Context") })
+    .first();
   await expect(host).toBeVisible({ timeout: 20_000 });
 
   if (agentMenuLabel) {
-    const trigger = page.locator('button[title="Switch Agent"]');
-    await expect(trigger).toBeVisible({ timeout: 15_000 });
-    await trigger.click();
+    const trigger = host.getByRole("button", { name: /^Agent$/i }).or(host.locator('button[title="Switch Agent"]'));
+    await expect(trigger.first()).toBeVisible({ timeout: 15_000 });
+    await trigger.first().click();
     const panel = page.locator('[data-slot="dropdown-menu-content"][class*="w-56"]');
     await expect(panel).toBeVisible({ timeout: 10_000 });
     const item = panel.locator('[data-slot="dropdown-menu-item"]').filter({ hasText: agentMenuLabel });
@@ -406,8 +489,8 @@ export const THEOREM_CH8_SKIP_MSG =
 
 const OPT_TEMPLATE_IDE_SHELL_TIMEOUT_MS = 180_000;
 
-const MIL_IMPORT_NAV_TIMEOUT_MS = 1_800_000;
-const MIL_IDE_SHELL_TIMEOUT_MS = 1_800_000;
+const MIL_IMPORT_NAV_TIMEOUT_MS = 600_000;
+const MIL_IDE_SHELL_TIMEOUT_MS = 600_000;
 
 export async function createTheoremProvingProjectFromMilTemplate(page: Page): Promise<boolean> {
   try {

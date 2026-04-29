@@ -12,7 +12,7 @@ import { absUrl } from "../common/global-setup";
 test.describe("4. 设置账号基础信息", () => {
   test.setTimeout(120_000);
 
-  test("4.1 账户设置：改昵称保存并刷新仍生效", async ({ page }) => {
+  test("4.1 改昵称保存并刷新仍生效", async ({ page }) => {
     await test.step("进入账户设置（资料区）", async () => {
       await page.goto(absUrl("/account"), { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "Account Settings" })).toBeVisible({

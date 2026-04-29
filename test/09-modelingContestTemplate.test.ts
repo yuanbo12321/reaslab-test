@@ -9,7 +9,7 @@ import {
 
 test.describe("9. 使用模板创建竞赛建模项目并完成建模工作", () => {
   test.describe.configure({ mode: "serial" });
-  test.setTimeout(900_000);
+  test.setTimeout(600_000);
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {

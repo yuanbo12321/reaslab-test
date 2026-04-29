@@ -17,7 +17,7 @@ const P116_SKIP_MSG =
 
 test.describe("6. 从 Git 导入项目", () => {
   test.describe.configure({ mode: "serial" });
-  test.setTimeout(1_800_000);
+  test.setTimeout(600_000);
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {

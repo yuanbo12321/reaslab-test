@@ -1,28 +1,39 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 import { absUrl } from "../common/global-setup";
+
 import {
   bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage,
   navigateToHomeProjects,
   projectsListBatchToolbar,
   projectsTabPanel,
   projectsTableDataRowsInTabPanel,
-  waitForFileTree,
 } from "./helpers";
 
 /**
  * **用户场景 §10**：查看项目列表并管理项目（见 `docs/用户场景.md`）。
- * 覆盖：工作台 Projects 四标签、按名称搜索、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。
+ * 覆盖：工作台 Projects 四标签、按名称搜索、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。（**10.1 不新建项目**，依赖账号在 **My Projects** 下已有至少一个自有项目，由其它用例创建。）
  * **10.1** 不对单条项目确认归档/删除；**10.2** 固定执行：对 **My Projects** 下当前账号 **全部自有项目** **全选 → 归档 → 在「Archived」中永久删除**（不按名称关键字筛选；见 `bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage`），并断言 **My Projects** 表格数据行为 0。
  *
  * 有界面调试：Playwright 使用 **`--headed`**（没有 `--head`）。例如：
  * `pnpm run test:10:headed`，或
  * `npx playwright test --config common/playwright.config.ts test/10-project-list.test.ts --headed`。
  */
-const U10_SKIP_MSG =
-  "无法创建项目（如工具链加载失败），跳过 §10 项目列表用例。";
+/** 列表数据行内指向 IDE 的项目名链接（排除行内 Setup/Settings 等）。 */
+async function projectDisplayNameFromListRow(row: Locator): Promise<string> {
+  const links = row.getByRole("link");
+  const n = await links.count();
+  const skip = new Set(["Setup", "Settings"]);
+  for (let i = 0; i < n; i++) {
+    const t = ((await links.nth(i).textContent()) ?? "").trim();
+    if (t && !skip.has(t)) {
+      return t;
+    }
+  }
+  return "";
+}
 
-test.describe("10. 查看项目列表并管理项目", () => {
+test.describe("10. 项目列表查看及管理", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(240_000);
 
@@ -37,7 +48,8 @@ test.describe("10. 查看项目列表并管理项目", () => {
     });
   });
 
-  test("10.1 四标签、新建 Modeling、搜索与行内操作", async ({ page }) => {
+  test("10.1 四标签、搜索与行内操作", async ({ page }) => {
+    let projectName = "";
     await test.step("工作台 Projects：四标签与搜索框", async () => {
       await navigateToHomeProjects(page);
       await expect(page.getByRole("tab", { name: "All Projects" })).toBeVisible();
@@ -58,50 +70,23 @@ test.describe("10. 查看项目列表并管理项目", () => {
       await page.getByRole("tab", { name: "All Projects" }).click();
     });
 
-    const projectName = `e2e_p1_u10_${Date.now()}`;
-
-    await test.step("新建 Modeling 项目（供列表检索）", async () => {
-      await navigateToHomeProjects(page);
-      await page.getByRole("button", { name: "New Project" }).first().click();
-      await expect(page.getByRole("heading", { name: "New Project" })).toBeVisible({
-        timeout: 120_000,
-      });
-
-      const toolchainErr = page.getByText(/Could not load toolchain versions/i);
-      if ((await toolchainErr.count()) > 0 && (await toolchainErr.isVisible().catch(() => false))) {
-        test.skip(true, U10_SKIP_MSG);
-      }
-
-      const modelingBtn = page.getByRole("button", { name: "Modeling", exact: true });
-      if ((await modelingBtn.count()) > 0) {
-        const m = modelingBtn.first();
-        const pressed = await m.getAttribute("aria-pressed");
-        const dataState = await m.getAttribute("data-state");
-        const on = pressed === "true" || dataState === "on";
-        if (!on) {
-          await m.click();
-        }
-      }
-
-      const nameInput = page.locator("input#project-name, input#projectName").first();
-      await expect(nameInput).toBeVisible({ timeout: 60_000 });
-      await nameInput.fill(projectName);
-
-      const createBtn = page.getByRole("button", { name: "Create Project" });
-      await expect(createBtn).toBeEnabled({ timeout: 90_000 });
-      await createBtn.click();
-
-      await page.waitForURL(/\/projects\/[^/]+\/?$/i, { timeout: 120_000 });
-      await page.getByTitle("Create New File").waitFor({ state: "visible", timeout: 120_000 });
-      await waitForFileTree(page);
-    });
-
     await test.step("返回列表：我的项目 + 名称搜索 + 行内操作可见", async () => {
       await page.goto(absUrl("/"), { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("tab", { name: "My Projects" }).click();
 
       const panel = projectsTabPanel(page, "My Projects");
+      await panel.getByPlaceholder("Search projects...").fill("");
+      const rows = projectsTableDataRowsInTabPanel(panel);
+      if ((await rows.count()) === 0) {
+        test.skip(
+          true,
+          "My Projects 无自有项目：10.1 已移除 New Project，请先运行其它用例在本账号下创建至少一个项目。",
+        );
+      }
+      projectName = (await projectDisplayNameFromListRow(rows.first())).trim();
+      expect(projectName.length).toBeGreaterThan(0);
+
       const search = panel.getByPlaceholder("Search projects...");
       await search.fill(projectName);
 
@@ -157,7 +142,7 @@ test.describe("10. 查看项目列表并管理项目", () => {
     });
   });
 
-  test("10.2 清理：全选并归档 My Projects 全部自有项目，再在「Archived」中永久删除", async ({ page }) => {
+  test("10.2 删除My Projects所有项目", async ({ page }) => {
     await test.step("My Projects：清空搜索 → 全选 → Archive → 确认（若有）→ Archived：全选 → Delete → 确认", async () => {
       await bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage(page);
     });

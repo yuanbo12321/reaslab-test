@@ -30,7 +30,7 @@ export const E2E_BOT_USER_AGENT =
   process.env.E2E_USER_AGENT ?? "Internal-QA-Bot/1.0 (E2E-Automated-Runner)";
 
 /**
- * P110 §5.3 等项目分享邀请的目标邮箱；流水线可用环境变量 **`E2E_SHARE_INVITE_EMAIL`** 覆盖。
+ * P110 §5.5 等项目分享邀请的目标邮箱；流水线可用环境变量 **`E2E_SHARE_INVITE_EMAIL`** 覆盖。
  */
 export const E2E_SHARE_INVITE_EMAIL =
   process.env.E2E_SHARE_INVITE_EMAIL?.trim() || "yuanbo@icode.pku.edu.cn";

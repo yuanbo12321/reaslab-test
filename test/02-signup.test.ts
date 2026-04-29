@@ -59,7 +59,7 @@ test.describe("2. 通过邮箱注册账号", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
   test.setTimeout(120_000);
 
-  test("2.1 邮箱注册：提交后提示验证邮件已发送", async ({ page }) => {
+  test("2.1 提交注册信息后提示验证邮件已发送", async ({ page }) => {
     page.setDefaultNavigationTimeout(NAV_MS);
     page.setDefaultTimeout(ACTION_MS);
 

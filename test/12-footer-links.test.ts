@@ -66,7 +66,7 @@ test.describe("12. 页脚导航链接", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
   test.setTimeout(300_000);
 
-  test("12.1 模板/资源/关于在新标签打开且地址正确", async ({ page }) => {
+  test("12.1 检查模板/资源/关于", async ({ page }) => {
     await gotoMarketingHome(page);
 
     await test.step("Templates · Optimization Modeling → /modeling-templates", async () => {
