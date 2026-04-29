@@ -4,7 +4,7 @@
  * 报告链接：可选 `node send-results/send-feishu.mjs <报告URL>`（有 URL 时发 **interactive** 卡片，带「打开报告」按钮；摘要正文不再含可点击 URL 行）。
  * 摘要 JSON：固定 `test-results/e2e-results.json`。
  * **被测网站 URL**：环境变量 **`E2E_BASE_URL`**（未设置时读 **`common/global-setup.ts`** 的 **`E2E_BASE_URL_DEFAULT`**）用于 **卡片 header 副标题**；摘要正文不再写「被测网站:…」与「--- 报告摘要 ---」。测 `localhost:3000` 时请先 `export E2E_BASE_URL=…` 再跑 `run.mjs`（子进程会继承）。
- * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **程序汇总**；其下 **GFM 表**：分隔行 **`| :---: | :--- |`**（第一列居中、第二列左对齐；飞书卡片 Markdown **不**解析 `<center>` 等块级 HTML，勿用）。多行功能点用 **`<br/>`**。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（程序级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
+ * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **程序汇总**；有报告 URL 的 **interactive** 卡片用飞书 **`table`** 组件展示「场景｜功能点」（首列 **固定 px** 宽：按最长场景标题 **「5. 创建空白项目并使用基础功能」** 与当前行文案取较大者估算，避免首列换行；**左对齐**、**顶对齐**，**`row_height: low`**）；**`msg_type: text`** 或无章节数据时仍可用 **GFM 表**（`| :--- | :--- |`，两列左对齐）。多行功能点用 **`<br/>`**。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（程序级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
  * **飞书 `code=11232` 频率限制**：自动退避重试（默认最多 **6** 次发送，可用 **`FEISHU_WEBHOOK_MAX_ATTEMPTS`** 覆盖，上限 12）。 */
 import fs from "node:fs";
 import path from "node:path";
@@ -193,6 +193,25 @@ function stripLeadingProgramHeadingFromCaseTitle(title, programHeading) {
 
 /** 每条用例最多列出的功能点条数（超出则提示见 HTML）。 */
 const MAX_FEATURE_ROWS_PER_PROGRAM = 40;
+
+/** 用户场景里已知最长的「场景」列文案，表首列宽度下限按此保证单行不换行（飞书列宽 [80px,600px]）。 */
+const FEISHU_SCENARIO_COL_WIDTH_REF_TITLE = "5. 创建空白项目并使用基础功能";
+
+/**
+ * 飞书 `table` 首列宽度：在参考最长标题与当前各 `heading` 中取最大字符数，换算为 px（偏保守，适配 14px 级正文字号）。
+ * @param {{ heading: string }[]} scenarioRows
+ */
+function feishuScenarioColumnWidthPx(scenarioRows) {
+  let maxChars = FEISHU_SCENARIO_COL_WIDTH_REF_TITLE.length;
+  for (const row of scenarioRows) {
+    const L = String(row?.heading ?? "").length;
+    if (L > maxChars) {
+      maxChars = L;
+    }
+  }
+  const px = Math.min(600, Math.max(80, Math.ceil(maxChars * 19 + 56)));
+  return `${px}px`;
+}
 
 /**
  * 按 `test/NN-*.test.ts` 收集各功能点标题与结果色类（与 Playwright JSON suite 树一致）。
@@ -407,13 +426,13 @@ function buildFeatureColumnMarkdownInline(entry) {
 
 /**
  * 飞书卡片 Markdown（JSON 2.0）支持 GFM 表；**勿**用 `<center>`（会原样显示）。
- * 列对齐：`| :---: | :--- |` → 第一列（场景）整列居中，第二列（功能点）整列左对齐，表头与数据行一致。
+ * 列对齐：`| :--- | :--- |` → 两列左对齐（用于纯文本 Webhook 等无 **`table`** 组件时）。
  * @param {{ heading: string, entry: { programHeading: string | null, items: { title: string, tone: "red" | "green" | "grey", flaky: boolean }[] } }[]} scenarioRows
  */
 function buildProgramSummaryMarkdownTable(scenarioRows) {
   const lines = [
     "| 场景 | 功能点 |",
-    "| :---: | :--- |",
+    "| :--- | :--- |",
   ];
   for (const { heading, entry } of scenarioRows) {
     const tone = scenarioRollupToneFromItems(entry);
@@ -425,46 +444,114 @@ function buildProgramSummaryMarkdownTable(scenarioRows) {
 }
 
 /**
- * @param {object | null} data
- * @param {{ failureTable?: boolean }} [options] 为 `true` 时用 **GFM Markdown 表** + 行内 `<font color>`（非 HTML 表块）。
+ * 与 `formatPlaywrightSummary` 中 `N > 0` 分支一致：按 scope / JSON 得到有序场景行。
+ * @param {object} data Playwright JSON
+ * @returns {{ scenarioRows: { heading: string, entry: { programHeading: string | null, items: { title: string, tone: "red" | "green" | "grey", flaky: boolean }[] } }[], N: number, failedProg: number } | null}
  */
-function formatPlaywrightSummary(data, options = {}) {
-  const failureTable = options.failureTable === true;
+function computeChapterScenarioBlock(data) {
   if (!data || typeof data !== "object") {
     return null;
   }
-  const parts = [];
   const scopeChapterIds = loadScopeChapterIdsForChapterLabel();
   const featureMap = collectFeaturePointsByProgramFile(data);
   const fromJson = chaptersFromProgramMap(featureMap);
   const chaptersOrdered =
     scopeChapterIds.length > 0 ? [...scopeChapterIds].sort() : fromJson.length > 0 ? fromJson : [];
   const N = chaptersOrdered.length;
-
-  if (N > 0) {
-    /** @type {{ heading: string, entry: { programHeading: string | null, items: { title: string, tone: "red" | "green" | "grey", flaky: boolean }[] } }[]} */
-    const scenarioRows = [];
-    let failedProg = 0;
-    for (const ch of chaptersOrdered) {
-      const key = findProgramFileKeyForChapter(ch, featureMap);
-      const rawEntry = key ? featureMap.get(key) : undefined;
-      const entry = rawEntry ?? { programHeading: null, items: [] };
-      const shortName = key ? shortSlugFromTestPath(key) : ch;
-      const heading =
-        (entry.programHeading && String(entry.programHeading).trim()) ||
-        `${ch}（${shortName}）`;
-      const programFailed = entry.items.some((it) => it.tone === "red");
-      if (programFailed) {
-        failedProg++;
-      }
-      scenarioRows.push({ heading, entry });
+  if (N <= 0) {
+    return null;
+  }
+  /** @type {{ heading: string, entry: { programHeading: string | null, items: { title: string, tone: "red" | "green" | "grey", flaky: boolean }[] } }[]} */
+  const scenarioRows = [];
+  let failedProg = 0;
+  for (const ch of chaptersOrdered) {
+    const key = findProgramFileKeyForChapter(ch, featureMap);
+    const rawEntry = key ? featureMap.get(key) : undefined;
+    const entry = rawEntry ?? { programHeading: null, items: [] };
+    const shortName = key ? shortSlugFromTestPath(key) : ch;
+    const heading =
+      (entry.programHeading && String(entry.programHeading).trim()) ||
+      `${ch}（${shortName}）`;
+    if (entry.items.some((it) => it.tone === "red")) {
+      failedProg++;
     }
+    scenarioRows.push({ heading, entry });
+  }
+  return { scenarioRows, N, failedProg };
+}
+
+/**
+ * 飞书卡片 JSON 2.0 **`table`**：列宽与顶对齐可控，比 GFM 表更易压缩首列与行内留白。
+ * @param {{ heading: string, entry: { programHeading: string | null, items: { title: string, tone: "red" | "green" | "grey", flaky: boolean }[] } }[]} scenarioRows
+ */
+function buildFeishuProgramSummaryTableElement(scenarioRows) {
+  const n = scenarioRows.length;
+  const pageSize = Math.min(10, Math.max(1, n));
+  const rows = scenarioRows.map(({ heading, entry }) => {
+    const tone = scenarioRollupToneFromItems(entry);
+    return {
+      scenario: wrapScenarioTitleForCard(heading, tone),
+      features: buildFeatureColumnMarkdownInline(entry),
+    };
+  });
+  return {
+    tag: "table",
+    element_id: "e2e_summary_tbl",
+    margin: "2px 0px 0px 0px",
+    page_size: pageSize,
+    row_height: "low",
+    header_style: {
+      text_align: "left",
+      text_size: "normal",
+      background_style: "none",
+      text_color: "default",
+      bold: true,
+      lines: 1,
+    },
+    columns: [
+      {
+        name: "scenario",
+        display_name: "场景",
+        width: feishuScenarioColumnWidthPx(scenarioRows),
+        data_type: "markdown",
+        vertical_align: "top",
+        horizontal_align: "left",
+      },
+      {
+        name: "features",
+        display_name: "功能点",
+        width: "auto",
+        data_type: "markdown",
+        vertical_align: "top",
+        horizontal_align: "left",
+      },
+    ],
+    rows,
+  };
+}
+
+/**
+ * @param {object | null} data
+ * @param {{ failureTable?: boolean, nativeFeishuTable?: boolean }} [options]
+ *   `failureTable` 为 `true` 时用表格式摘要；`nativeFeishuTable` 为 `true` 时**不**写入 GFM 表（由卡片 **`table`** 组件单独渲染，仅在有报告 URL 的 interactive 路径使用）。
+ */
+function formatPlaywrightSummary(data, options = {}) {
+  const failureTable = options.failureTable === true;
+  const nativeFeishuTable = options.nativeFeishuTable === true;
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  const parts = [];
+  const block = computeChapterScenarioBlock(data);
+
+  if (block) {
+    const { scenarioRows, N, failedProg } = block;
     const successProg = N - failedProg;
     parts.push(`程序汇总：成功 ${successProg} 个，失败 ${failedProg} 个（共${N}个）`);
     parts.push("红色-失败，绿色-成功，灰色-未执行");
-    if (failureTable) {
+    if (failureTable && !nativeFeishuTable) {
       parts.push(buildProgramSummaryMarkdownTable(scenarioRows));
-    } else {
+    } else if (!failureTable) {
       for (const { heading, entry } of scenarioRows) {
         const tone = scenarioRollupToneFromItems(entry);
         parts.push(
@@ -582,17 +669,27 @@ function splitMarkdownForStatsBelowTable(raw) {
 
 /**
  * 自定义机器人 Webhook：`msg_type: interactive` + 卡片 JSON 2.0（与官方示例一致）。
+ * @param {string | null | undefined} markdownBody
+ * @param {object | null | undefined} feishuTableElement 程序汇总表；插在首段 Markdown 之后、统计段 Markdown 之前。
  * @see https://open.feishu.cn/document/feishu-cards/quick-start/send-message-cards-with-custom-bot?lang=zh-CN
  */
-function buildInteractiveCardPayload(reportUrl, markdownBody) {
+function buildInteractiveCardPayload(reportUrl, markdownBody, feishuTableElement = null) {
   const chunks = splitMarkdownForStatsBelowTable(markdownBody.trim() || "测试已完成");
-  const markdownElements = chunks.map((chunk, i) => ({
-    tag: "markdown",
-    content: finalizeFeishuCardMarkdownBody(chunk.length > 0 ? chunk : "\u00a0"),
-    text_align: "left",
-    text_size: "normal_v2",
-    margin: i === 1 ? "8px 0px 0px 0px" : "0px 0px 0px 0px",
-  }));
+  /** @type {object[]} */
+  const markdownElements = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    markdownElements.push({
+      tag: "markdown",
+      content: finalizeFeishuCardMarkdownBody(chunk.length > 0 ? chunk : "\u00a0"),
+      text_align: "left",
+      text_size: "normal_v2",
+      margin: i === 0 ? "0px 0px 0px 0px" : "8px 0px 0px 0px",
+    });
+    if (i === 0 && feishuTableElement) {
+      markdownElements.push(feishuTableElement);
+    }
+  }
   const sub = sanitizeMarkdownTableCell(E2E_BASE_URL_DISPLAY, 120);
   return {
     msg_type: "interactive",
@@ -648,10 +745,19 @@ function buildPayload() {
   const reportUrl = CLI_REPORT_URL;
 
   if (reportUrl) {
-    const rawMarkdown = buildPlainText({ failureTable: true });
-    const reserve = 5600;
+    const { data } = loadPlaywrightReportObject();
+    const summaryMd = data
+      ? formatPlaywrightSummary(data, { failureTable: true, nativeFeishuTable: true })
+      : null;
+    const rawMarkdown = summaryMd ?? buildPlainText({ failureTable: true });
+    const block = data ? computeChapterScenarioBlock(data) : null;
+    const tableEl =
+      block?.scenarioRows?.length && data
+        ? buildFeishuProgramSummaryTableElement(block.scenarioRows)
+        : null;
+    const reserve = tableEl ? 7200 : 5600;
     const md = truncateText(rawMarkdown, Math.max(2048, MAX_BODY_BYTES - reserve));
-    return buildInteractiveCardPayload(reportUrl, md);
+    return buildInteractiveCardPayload(reportUrl, md, tableEl);
   }
 
   const truncated = truncateText(buildPlainText({ failureTable: false }), MAX_BODY_BYTES - 512);
@@ -683,6 +789,22 @@ function shrinkPayloadIfNeeded(body) {
             Math.floor(Buffer.byteLength(el.content, "utf8") * 0.88),
           );
           el.content = truncateText(el.content, byteBudget);
+        }
+        if (el?.tag === "table" && Array.isArray(el.rows)) {
+          for (const row of el.rows) {
+            if (row && typeof row === "object") {
+              for (const k of Object.keys(row)) {
+                const v = row[k];
+                if (typeof v === "string" && v.length > 0) {
+                  const byteBudget = Math.max(
+                    400,
+                    Math.floor(Buffer.byteLength(v, "utf8") * 0.88),
+                  );
+                  row[k] = truncateText(v, byteBudget);
+                }
+              }
+            }
+          }
         }
       }
       b = withSign({ msg_type: "interactive", card: b.card });
