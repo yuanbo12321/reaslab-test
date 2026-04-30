@@ -97,8 +97,10 @@ export function projectsTableDataRowsInTabPanel(panel: Locator): Locator {
 }
 
 /**
- * 在工作台 **`/`** Projects：**My Projects** 下对当前列表中的 **全部自有项目**（**不使用搜索框**）循环执行：
+ * 在工作台 **`/`** Projects：**My Projects** 下对当前列表中的 **全部自有项目** 循环执行：
  * **全选 → Archive → 确认**，再在 **Archived Projects** 中对 **全部已归档行** **全选 → Delete → 确认**（永久删除）。
+ *
+ * 各标签页会先 **`fill("")` 清空搜索框**：这不是「按关键字搜索」，而是**去掉残留筛选**，避免 `count()` 读到 0 行却误判已空、或 Archived 里筛掉行而跳过永久删除。
  *
  * 与前端 **`projects-table`**（表头 `aria-label="Select all projects"`）、**`projects-batch-toolbar`**、
  * **`projects-page`** 批量确认文案一致；多轮执行直至「我的项目」与「已归档」列表均无数据行，或达到轮数上限。
@@ -110,6 +112,8 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
 
     await page.getByRole("tab", { name: "My Projects" }).click();
     const myPanel = projectsTabPanel(page, "My Projects");
+    await expect(myPanel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+    await myPanel.getByPlaceholder("Search projects...").fill("");
     const nMyStart = await projectsTableDataRowsInTabPanel(myPanel).count();
 
     if (nMyStart > 0) {
@@ -127,6 +131,8 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
 
     await page.getByRole("tab", { name: "Archived Projects" }).click();
     const archivedPanel = projectsTabPanel(page, "Archived Projects");
+    await expect(archivedPanel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+    await archivedPanel.getByPlaceholder("Search projects...").fill("");
 
     if (nMyStart > 0) {
       await expect
@@ -135,9 +141,6 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
     }
 
     const nArch = await projectsTableDataRowsInTabPanel(archivedPanel).count();
-    if (nMyStart === 0 && nArch === 0) {
-      return;
-    }
 
     if (nArch > 0) {
       await archivedPanel.getByRole("checkbox", { name: "Select all projects" }).click();
@@ -151,6 +154,28 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
       await confirmDelete.getByRole("button", { name: "Delete", exact: true }).click();
       await expect(confirmDelete).toBeHidden({ timeout: 180_000 });
     }
+
+    // 用回合结束时的真实行数判断「是否已清空」，勿用本轮开头的 nMyStart（首帧 0 行会误判并提前 return）
+    await page.getByRole("tab", { name: "My Projects" }).click();
+    const myPanelEnd = projectsTabPanel(page, "My Projects");
+    await myPanelEnd.getByPlaceholder("Search projects...").fill("");
+    const nMyEnd = await projectsTableDataRowsInTabPanel(myPanelEnd).count();
+    await page.getByRole("tab", { name: "Archived Projects" }).click();
+    const archivedPanelEnd = projectsTabPanel(page, "Archived Projects");
+    await archivedPanelEnd.getByPlaceholder("Search projects...").fill("");
+    const nArchEnd = await projectsTableDataRowsInTabPanel(archivedPanelEnd).count();
+    if (nMyEnd === 0 && nArchEnd === 0) {
+      return;
+    }
+  }
+
+  await navigateToHomeProjects(page);
+  await page.getByRole("tab", { name: "My Projects" }).click();
+  const left = await projectsTableDataRowsInTabPanel(projectsTabPanel(page, "My Projects")).count();
+  if (left > 0) {
+    throw new Error(
+      `bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage: 经过 ${maxPasses} 轮后 My Projects 仍有 ${left} 行；请检查归档/删除确认框或列表筛选状态。`,
+    );
   }
 }
 
