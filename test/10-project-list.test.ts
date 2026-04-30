@@ -12,7 +12,7 @@ import {
 
 /**
  * **用户场景 §10**：查看项目列表并管理项目（见 `docs/用户场景.md`）。
- * 覆盖：工作台 Projects 四标签、**My Projects** 列表（**不使用搜索框**）、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。（**10.1 不新建项目**，依赖账号在 **My Projects** 下已有至少一个自有项目，由其它用例创建。）
+ * 覆盖：工作台 Projects 四标签、**My Projects** 列表（**不按关键字搜索**；仅在数行/点行前 **`fill("")` 清空残留筛选**，避免误 skip）、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。（**10.1 不新建项目**，依赖账号在 **My Projects** 下已有至少一个自有项目，由其它用例创建。）
  * **10.1** 不对单条项目确认归档/删除；**10.2** 固定执行：对 **My Projects** 下当前账号 **全部自有项目** **全选 → 归档 → 在「Archived」中永久删除**（见 `bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage`），并断言 **My Projects** 表格数据行为 0。
  *
  * 有界面调试：Playwright 使用 **`--headed`**（没有 `--head`）。例如：
@@ -70,12 +70,15 @@ test.describe("10. 项目列表查看及管理", () => {
       await page.getByRole("tab", { name: "All Projects" }).click();
     });
 
-    await test.step("返回列表：My Projects 列表非空与行内操作（不经过搜索框）", async () => {
+    await test.step("返回列表：My Projects 列表非空与行内操作", async () => {
       await page.goto(absUrl("/"), { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("tab", { name: "My Projects" }).click();
 
       const panel = projectsTabPanel(page, "My Projects");
+      await expect(panel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+      // 仅去掉上次会话留在搜索框里的筛选，避免数到 0 行误 skip；不作按名称搜索。
+      await panel.getByPlaceholder("Search projects...").fill("");
       const rows = projectsTableDataRowsInTabPanel(panel);
       if ((await rows.count()) === 0) {
         test.skip(
@@ -129,6 +132,8 @@ test.describe("10. 项目列表查看及管理", () => {
       await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("tab", { name: "My Projects" }).click();
       const panel = projectsTabPanel(page, "My Projects");
+      await expect(panel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+      await panel.getByPlaceholder("Search projects...").fill("");
       const row = projectsTableDataRowsInTabPanel(panel).first();
       await expect(row).toBeVisible({ timeout: 30_000 });
       await row.getByRole("link", { name: "Settings", exact: true }).click();
@@ -145,6 +150,8 @@ test.describe("10. 项目列表查看及管理", () => {
       await navigateToHomeProjects(page);
       await page.getByRole("tab", { name: "My Projects" }).click();
       const panel = projectsTabPanel(page, "My Projects");
+      await expect(panel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+      await panel.getByPlaceholder("Search projects...").fill("");
       await expect(projectsTableDataRowsInTabPanel(panel)).toHaveCount(0, { timeout: 30_000 });
     });
   });
