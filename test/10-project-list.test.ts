@@ -12,8 +12,8 @@ import {
 
 /**
  * **用户场景 §10**：查看项目列表并管理项目（见 `docs/用户场景.md`）。
- * 覆盖：工作台 Projects 四标签、按名称搜索、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。（**10.1 不新建项目**，依赖账号在 **My Projects** 下已有至少一个自有项目，由其它用例创建。）
- * **10.1** 不对单条项目确认归档/删除；**10.2** 固定执行：对 **My Projects** 下当前账号 **全部自有项目** **全选 → 归档 → 在「Archived」中永久删除**（不按名称关键字筛选；见 `bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage`），并断言 **My Projects** 表格数据行为 0。
+ * 覆盖：工作台 Projects 四标签、**My Projects** 列表（**不使用搜索框**）、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。（**10.1 不新建项目**，依赖账号在 **My Projects** 下已有至少一个自有项目，由其它用例创建。）
+ * **10.1** 不对单条项目确认归档/删除；**10.2** 固定执行：对 **My Projects** 下当前账号 **全部自有项目** **全选 → 归档 → 在「Archived」中永久删除**（见 `bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage`），并断言 **My Projects** 表格数据行为 0。
  *
  * 有界面调试：Playwright 使用 **`--headed`**（没有 `--head`）。例如：
  * `pnpm run test:10:headed`，或
@@ -48,9 +48,9 @@ test.describe("10. 项目列表查看及管理", () => {
     });
   });
 
-  test("10.1 四标签、搜索与行内操作", async ({ page }) => {
+  test("10.1 四标签与行内操作", async ({ page }) => {
     let projectName = "";
-    await test.step("工作台 Projects：四标签与搜索框", async () => {
+    await test.step("工作台 Projects：四标签与搜索框可见", async () => {
       await navigateToHomeProjects(page);
       await expect(page.getByRole("tab", { name: "All Projects" })).toBeVisible();
       await expect(page.getByRole("tab", { name: "My Projects" })).toBeVisible();
@@ -70,39 +70,34 @@ test.describe("10. 项目列表查看及管理", () => {
       await page.getByRole("tab", { name: "All Projects" }).click();
     });
 
-    await test.step("返回列表：我的项目 + 名称搜索 + 行内操作可见", async () => {
+    await test.step("返回列表：My Projects 列表非空与行内操作（不经过搜索框）", async () => {
       await page.goto(absUrl("/"), { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("tab", { name: "My Projects" }).click();
 
       const panel = projectsTabPanel(page, "My Projects");
-      await panel.getByPlaceholder("Search projects...").fill("");
       const rows = projectsTableDataRowsInTabPanel(panel);
       if ((await rows.count()) === 0) {
         test.skip(
           true,
-          "My Projects 无自有项目：10.1 已移除 New Project，请先运行其它用例在本账号下创建至少一个项目。",
+          "My Projects 无自有项目：10.1 不新建项目，请先运行其它用例在本账号下创建至少一个项目。",
         );
       }
-      projectName = (await projectDisplayNameFromListRow(rows.first())).trim();
+      const firstRow = rows.first();
+      projectName = (await projectDisplayNameFromListRow(firstRow)).trim();
       expect(projectName.length).toBeGreaterThan(0);
 
-      const search = panel.getByPlaceholder("Search projects...");
-      await search.fill(projectName);
-
-      const row = page.getByRole("row").filter({ hasText: projectName }).first();
-      await expect(row).toBeVisible({ timeout: 30_000 });
-
-      await expect(row.getByRole("link", { name: "Setup", exact: true })).toBeVisible();
-      await expect(row.getByRole("link", { name: "Settings", exact: true })).toBeVisible();
-      await expect(row.getByRole("button", { name: "Download", exact: true })).toBeVisible();
-      await expect(row.getByRole("button", { name: "Copy", exact: true })).toBeVisible();
-      await expect(row.getByRole("button", { name: "Rename", exact: true })).toBeVisible();
-      await expect(row.getByRole("button", { name: "Archive", exact: true })).toBeVisible();
+      await expect(firstRow).toBeVisible({ timeout: 30_000 });
+      await expect(firstRow.getByRole("link", { name: "Setup", exact: true })).toBeVisible();
+      await expect(firstRow.getByRole("link", { name: "Settings", exact: true })).toBeVisible();
+      await expect(firstRow.getByRole("button", { name: "Download", exact: true })).toBeVisible();
+      await expect(firstRow.getByRole("button", { name: "Copy", exact: true })).toBeVisible();
+      await expect(firstRow.getByRole("button", { name: "Rename", exact: true })).toBeVisible();
+      await expect(firstRow.getByRole("button", { name: "Archive", exact: true })).toBeVisible();
     });
 
     await test.step("Rename 对话框打开后取消", async () => {
-      const row = page.getByRole("row").filter({ hasText: projectName }).first();
+      const row = projectsTableDataRowsInTabPanel(projectsTabPanel(page, "My Projects")).first();
       await row.getByRole("button", { name: "Rename", exact: true }).click();
       await expect(page.getByRole("dialog").getByText("Rename project")).toBeVisible();
       await page.keyboard.press("Escape");
@@ -110,7 +105,7 @@ test.describe("10. 项目列表查看及管理", () => {
     });
 
     await test.step("多选后出现批量栏（不确认归档）", async () => {
-      const row = page.getByRole("row").filter({ hasText: projectName }).first();
+      const row = projectsTableDataRowsInTabPanel(projectsTabPanel(page, "My Projects")).first();
       await row.getByRole("checkbox", { name: `Select project ${projectName}` }).click();
       await expect(page.getByText("Selected 1", { exact: true })).toBeVisible({ timeout: 10_000 });
       const myPanel = projectsTabPanel(page, "My Projects");
@@ -123,7 +118,7 @@ test.describe("10. 项目列表查看及管理", () => {
     });
 
     await test.step("点击项目名进入 IDE", async () => {
-      const row = page.getByRole("row").filter({ hasText: projectName }).first();
+      const row = projectsTableDataRowsInTabPanel(projectsTabPanel(page, "My Projects")).first();
       await row.getByRole("link", { name: projectName, exact: true }).click();
       await page.waitForURL(/\/projects\/[^/]+\/?$/i, { timeout: 60_000 });
       await expect(page.getByTitle("Create New File")).toBeVisible({ timeout: 30_000 });
@@ -134,8 +129,7 @@ test.describe("10. 项目列表查看及管理", () => {
       await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("tab", { name: "My Projects" }).click();
       const panel = projectsTabPanel(page, "My Projects");
-      await panel.getByPlaceholder("Search projects...").fill(projectName);
-      const row = page.getByRole("row").filter({ hasText: projectName }).first();
+      const row = projectsTableDataRowsInTabPanel(panel).first();
       await expect(row).toBeVisible({ timeout: 30_000 });
       await row.getByRole("link", { name: "Settings", exact: true }).click();
       await expect(page).toHaveURL(/\/projects\/[^/]+\/settings/i, { timeout: 30_000 });
@@ -143,15 +137,14 @@ test.describe("10. 项目列表查看及管理", () => {
   });
 
   test("10.2 删除My Projects所有项目", async ({ page }) => {
-    await test.step("My Projects：清空搜索 → 全选 → Archive → 确认（若有）→ Archived：全选 → Delete → 确认", async () => {
+    await test.step("My Projects：全选 → Archive → 确认（若有）→ Archived：全选 → Delete → 确认", async () => {
       await bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage(page);
     });
 
-    await test.step("My Projects：列表无数据行（不通过关键字筛选）", async () => {
+    await test.step("My Projects：列表无数据行", async () => {
       await navigateToHomeProjects(page);
       await page.getByRole("tab", { name: "My Projects" }).click();
       const panel = projectsTabPanel(page, "My Projects");
-      await panel.getByPlaceholder("Search projects...").fill("");
       await expect(projectsTableDataRowsInTabPanel(panel)).toHaveCount(0, { timeout: 30_000 });
     });
   });

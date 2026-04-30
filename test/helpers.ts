@@ -97,11 +97,11 @@ export function projectsTableDataRowsInTabPanel(panel: Locator): Locator {
 }
 
 /**
- * 在工作台 **`/`** Projects：**My Projects** 下 **不填搜索词**（清空筛选）后，对当前可见的 **全部自有项目** 循环执行：
+ * 在工作台 **`/`** Projects：**My Projects** 下对当前列表中的 **全部自有项目**（**不使用搜索框**）循环执行：
  * **全选 → Archive → 确认**，再在 **Archived Projects** 中对 **全部已归档行** **全选 → Delete → 确认**（永久删除）。
  *
  * 与前端 **`projects-table`**（表头 `aria-label="Select all projects"`）、**`projects-batch-toolbar`**、
- * **`projects-page`** 批量确认文案一致；多轮执行直至「我的项目」与「已归档」在无筛选下均无数据行，或达到轮数上限。
+ * **`projects-page`** 批量确认文案一致；多轮执行直至「我的项目」与「已归档」列表均无数据行，或达到轮数上限。
  */
 export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage(page: Page): Promise<void> {
   const maxPasses = 8;
@@ -110,7 +110,6 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
 
     await page.getByRole("tab", { name: "My Projects" }).click();
     const myPanel = projectsTabPanel(page, "My Projects");
-    await myPanel.getByPlaceholder("Search projects...").fill("");
     const nMyStart = await projectsTableDataRowsInTabPanel(myPanel).count();
 
     if (nMyStart > 0) {
@@ -128,7 +127,6 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
 
     await page.getByRole("tab", { name: "Archived Projects" }).click();
     const archivedPanel = projectsTabPanel(page, "Archived Projects");
-    await archivedPanel.getByPlaceholder("Search projects...").fill("");
 
     if (nMyStart > 0) {
       await expect
