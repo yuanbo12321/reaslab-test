@@ -112,7 +112,8 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
 
     await page.getByRole("tab", { name: "My Projects" }).click();
     const myPanel = projectsTabPanel(page, "My Projects");
-    await expect(myPanel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+    // 空列表时 table-body 可能被样式隐藏，勿对 tbody 断言 visible；以搜索框就绪代表面板可交互。
+    await expect(myPanel.getByPlaceholder("Search projects...")).toBeVisible({ timeout: 30_000 });
     await myPanel.getByPlaceholder("Search projects...").fill("");
     const nMyStart = await projectsTableDataRowsInTabPanel(myPanel).count();
 
@@ -131,7 +132,7 @@ export async function bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage
 
     await page.getByRole("tab", { name: "Archived Projects" }).click();
     const archivedPanel = projectsTabPanel(page, "Archived Projects");
-    await expect(archivedPanel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+    await expect(archivedPanel.getByPlaceholder("Search projects...")).toBeVisible({ timeout: 30_000 });
     await archivedPanel.getByPlaceholder("Search projects...").fill("");
 
     if (nMyStart > 0) {

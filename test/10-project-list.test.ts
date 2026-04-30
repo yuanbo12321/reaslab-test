@@ -76,7 +76,7 @@ test.describe("10. 项目列表查看及管理", () => {
       await page.getByRole("tab", { name: "My Projects" }).click();
 
       const panel = projectsTabPanel(page, "My Projects");
-      await expect(panel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+      await expect(panel.getByPlaceholder("Search projects...")).toBeVisible({ timeout: 30_000 });
       // 仅去掉上次会话留在搜索框里的筛选，避免数到 0 行误 skip；不作按名称搜索。
       await panel.getByPlaceholder("Search projects...").fill("");
       const rows = projectsTableDataRowsInTabPanel(panel);
@@ -132,7 +132,7 @@ test.describe("10. 项目列表查看及管理", () => {
       await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("tab", { name: "My Projects" }).click();
       const panel = projectsTabPanel(page, "My Projects");
-      await expect(panel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+      await expect(panel.getByPlaceholder("Search projects...")).toBeVisible({ timeout: 30_000 });
       await panel.getByPlaceholder("Search projects...").fill("");
       const row = projectsTableDataRowsInTabPanel(panel).first();
       await expect(row).toBeVisible({ timeout: 30_000 });
@@ -150,8 +150,9 @@ test.describe("10. 项目列表查看及管理", () => {
       await navigateToHomeProjects(page);
       await page.getByRole("tab", { name: "My Projects" }).click();
       const panel = projectsTabPanel(page, "My Projects");
-      await expect(panel.locator('[data-slot="table-body"]')).toBeVisible({ timeout: 30_000 });
+      await expect(panel.getByPlaceholder("Search projects...")).toBeVisible({ timeout: 30_000 });
       await panel.getByPlaceholder("Search projects...").fill("");
+      // 无项目时 table-body 可能 hidden；只断言数据行数为 0（已是空则本步通过，不报错）
       await expect(projectsTableDataRowsInTabPanel(panel)).toHaveCount(0, { timeout: 30_000 });
     });
   });
