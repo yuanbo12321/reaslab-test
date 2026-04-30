@@ -4,7 +4,7 @@
  * 报告链接：可选 `node send-results/send-feishu.mjs <报告URL>`（有 URL 时发 **interactive** 卡片，带「打开报告」按钮；摘要正文不再含可点击 URL 行）。
  * 摘要 JSON：固定 `test-results/e2e-results.json`。
  * **被测网站 URL**：环境变量 **`E2E_BASE_URL`**（未设置时读 **`common/global-setup.ts`** 的 **`E2E_BASE_URL_DEFAULT`**）用于 **卡片 header 副标题**；摘要正文不再写「被测网站:…」与「--- 报告摘要 ---」。测 `localhost:3000` 时请先 `export E2E_BASE_URL=…` 再跑 `run.mjs`（子进程会继承）。
- * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **场景汇总**；有报告 URL 的 **interactive** 卡片用飞书 **`table`** 展示「场景｜功能点」（首列 **约 40%**、次列 **约 60%**，随卡片宽度伸缩，避免固定 px 在窄端占满挤压功能点；**左对齐**、**顶对齐**，**`row_height: auto`** + **`row_max_height`** 以免多行功能点被默认 124px 裁切；**`msg_type: text`** 或无章节数据时仍可用 **GFM 表**（`| :--- | :--- |`）。多行功能点用 **`<br/><br/>`** 分隔。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（场景级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
+ * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **场景汇总**；有报告 URL 的 **interactive** 卡片用飞书 **`table`** 展示「场景｜功能点」（首列 **约 40%**、次列 **约 60%**，随卡片宽度伸缩，避免固定 px 在窄端占满挤压功能点；**左对齐**、**顶对齐**，**`row_height: auto`** + **`row_max_height`** 以免多行功能点被默认 124px 裁切；**`msg_type: text`** 或无章节数据时仍可用 **GFM 表**（`| :--- | :--- |`）。多行功能点用 **`<br/>`** 换行（无额外空行）。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（场景级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
  * **飞书 `code=11232` 频率限制**：自动退避重试（默认最多 **6** 次发送，可用 **`FEISHU_WEBHOOK_MAX_ATTEMPTS`** 覆盖，上限 12）。 */
 import fs from "node:fs";
 import path from "node:path";
@@ -384,7 +384,7 @@ function plainTagForFeatureItem(item) {
 }
 
 /**
- * 功能点列：行内 `<font color>` 着色；多条之间用 **`<br/><br/>`** 留白（飞书 table 内可读性更好）。
+ * 功能点列：行内 `<font color>` 着色；多条之间仅用 **`<br/>`** 换行（不插入空行）。
  * @param {{ programHeading: string | null, items: { title: string, tone: "red" | "green" | "grey", flaky: boolean }[] }} entry
  */
 function buildFeatureColumnMarkdownInline(entry) {
@@ -400,9 +400,9 @@ function buildFeatureColumnMarkdownInline(entry) {
   const omitted = items.length - cap.length;
   const suffix =
     omitted > 0
-      ? `<br/><br/><font color='grey'>（另 ${omitted} 条见 HTML 报告）</font>`
+      ? `<br/><font color='grey'>（另 ${omitted} 条见 HTML 报告）</font>`
       : "";
-  return `${lines.join("<br/><br/>")}${suffix}`;
+  return `${lines.join("<br/>")}${suffix}`;
 }
 
 /**
