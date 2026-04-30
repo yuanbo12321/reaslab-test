@@ -513,13 +513,14 @@ function buildFeishuProgramSummaryTableElement(scenarioRows) {
   };
 }
 
-/** 场景色图例：卡片 markdown 用 `<font color>`；`msg_type: text` 时用纯文本避免标签原样输出。 */
+/** 场景色图例：卡片 markdown 仅对「红/绿/灰」上色；`-失败 / -成功 / -未执行` 为默认字色。`msg_type: text` 时用纯文本。 */
 function scenarioColorLegendLine(htmlLegend) {
   if (htmlLegend === false) {
     return "红色-失败，绿色-成功，灰色-未执行";
   }
+  // 仅「红/绿/灰」二字上色；「-失败 / -成功 / -未执行」保持默认色（用户可读语义、不整段染色）
   return (
-    "<font color='red'>红色-失败</font>，<font color='green'>绿色-成功</font>，<font color='grey'>灰色-未执行</font>"
+    "<font color='red'>红色</font>-失败，<font color='green'>绿色</font>-成功，<font color='grey'>灰色</font>-未执行"
   );
 }
 
