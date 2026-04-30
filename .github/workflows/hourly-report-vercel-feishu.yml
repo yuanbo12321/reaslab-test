@@ -1,6 +1,6 @@
-# 每 1 小时执行（UTC）：按 **`common/run-scope.txt`** 列出的章节号跑 E2E（`pnpm run reaslab-test -- --exit-zero-on-e2e-failure` → **run.mjs** `--scope-file=common/run-scope.txt` + `--exit-zero-on-e2e-failure`，例如 `01`→`01-playground.test.ts`、`05`→`05-blankModeling.test.ts`）→ 部署 `playwright-report` 到 Vercel → 飞书（卡片底部「打开报告」链接；正文「被测网站」由 **send-feishu.mjs** 读取 **`E2E_BASE_URL`**，未设置时默认 **beta**，与 `common/global-setup.ts` 一致）。改跑哪些文件请编辑 **`common/run-scope.txt`**，或在本 job 的 `env` 设 **`E2E_SCOPE_FILE`** 指向其它路径。
-# GitHub Actions 的 `schedule.cron` 一律按 UTC；`0 * * * *` = 每小时整点一次（:00 UTC）。
-# 若单次 job 偶发超过 1 小时且 `cancel-in-progress: true`，下一触发可能取消上一跑；可改为 `false` 或调稀 cron。
+# 每 2 小时执行（UTC）：按 **`common/run-scope.txt`** 列出的章节号跑 E2E（`pnpm run reaslab-test -- --exit-zero-on-e2e-failure` → **run.mjs** `--scope-file=common/run-scope.txt` + `--exit-zero-on-e2e-failure`，例如 `01`→`01-playground.test.ts`、`05`→`05-blankModeling.test.ts`）→ 部署 `playwright-report` 到 Vercel → 飞书（卡片底部「打开报告」链接；正文「被测网站」由 **send-feishu.mjs** 读取 **`E2E_BASE_URL`**，未设置时默认 **beta**，与 `common/global-setup.ts` 一致）。改跑哪些文件请编辑 **`common/run-scope.txt`**，或在本 job 的 `env` 设 **`E2E_SCOPE_FILE`** 指向其它路径。
+# GitHub Actions 的 `schedule.cron` 一律按 UTC；`0 */2 * * *` = 每 2 小时整点一次（0、2、4… 时 UTC 的 :00）。
+# 若单次 job 偶发超过 2 小时且 `cancel-in-progress: true`，下一触发可能取消上一跑；可改为 `false` 或再调稀 cron。
 #
 # `package.json` 的 postinstall 会执行 `playwright install chromium`（体积大、易拖长 Install）。
 # Playwright：若 runner 本机已有 `~/.cache/ms-playwright/chromium-*`，则 **跳过** `actions/cache` 的 restore，
@@ -8,15 +8,15 @@
 # pnpm：**不**启用 `setup-node` 的 `cache: pnpm`（GitHub Actions 缓存 tarball，经代理常 0 B/s 卡住）。
 # GitHub 托管 runner：每 job 干净环境，Playwright 浏览器依赖本 workflow 的 `actions/cache` 或 postinstall 下载。
 # （若改回 self-hosted：同一用户下 `pnpm store` 常持久存在，`pnpm install` 更易复用本地 store。）
-name: Report (Vercel + Feishu) every hour
+name: Report (Vercel + Feishu) every 2 hours
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 */2 * * *"
   workflow_dispatch:
 
 concurrency:
-  group: hourly-report-vercel-feishu
+  group: report-vercel-feishu-scheduled
   cancel-in-progress: true
 
 jobs:

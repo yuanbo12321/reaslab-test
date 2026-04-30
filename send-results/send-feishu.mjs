@@ -4,7 +4,7 @@
  * 报告链接：可选 `node send-results/send-feishu.mjs <报告URL>`（有 URL 时发 **interactive** 卡片，带「打开报告」按钮；摘要正文不再含可点击 URL 行）。
  * 摘要 JSON：固定 `test-results/e2e-results.json`。
  * **被测网站 URL**：环境变量 **`E2E_BASE_URL`**（未设置时读 **`common/global-setup.ts`** 的 **`E2E_BASE_URL_DEFAULT`**）用于 **卡片 header 副标题**；摘要正文不再写「被测网站:…」与「--- 报告摘要 ---」。测 `localhost:3000` 时请先 `export E2E_BASE_URL=…` 再跑 `run.mjs`（子进程会继承）。
- * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **场景汇总**；有报告 URL 的 **interactive** 卡片用飞书 **`table`** 展示「场景｜功能点」（首列 **约 40%**、次列 **约 60%**，随卡片宽度伸缩，避免固定 px 在窄端占满挤压功能点；**左对齐**、**顶对齐**，**`row_height: low`**）；**`msg_type: text`** 或无章节数据时仍可用 **GFM 表**（`| :--- | :--- |`）。多行功能点用 **`<br/>`**。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（场景级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
+ * **章节范围**：`run.mjs` 使用 **`--scope-file`** 时注入 **`E2E_SCOPE_FILE`**。摘要含 **场景汇总**；有报告 URL 的 **interactive** 卡片用飞书 **`table`** 展示「场景｜功能点」（首列 **约 40%**、次列 **约 60%**，随卡片宽度伸缩，避免固定 px 在窄端占满挤压功能点；**左对齐**、**顶对齐**，**`row_height: auto`** + **`row_max_height`** 以免多行功能点被默认 124px 裁切；**`msg_type: text`** 或无章节数据时仍可用 **GFM 表**（`| :--- | :--- |`）。多行功能点用 **`<br/><br/>`** 分隔。第二列着色；第一列场景汇总色：**有红则红**、**全灰则灰**、**否则绿**。**无报告 URL** 时为 **`msg_type: text`**。**失败（场景级）** = 该文件下至少一条用例为 failed/timedOut/interrupted。
  * **飞书 `code=11232` 频率限制**：自动退避重试（默认最多 **6** 次发送，可用 **`FEISHU_WEBHOOK_MAX_ATTEMPTS`** 覆盖，上限 12）。 */
 import fs from "node:fs";
 import path from "node:path";
@@ -384,7 +384,7 @@ function plainTagForFeatureItem(item) {
 }
 
 /**
- * 功能点列：行内 `<font color>` 着色；多条之间用 **`<br/>`** 换行（仍属单行表格行，不破坏 GFM 解析）。
+ * 功能点列：行内 `<font color>` 着色；多条之间用 **`<br/><br/>`** 留白（飞书 table 内可读性更好）。
  * @param {{ programHeading: string | null, items: { title: string, tone: "red" | "green" | "grey", flaky: boolean }[] }} entry
  */
 function buildFeatureColumnMarkdownInline(entry) {
@@ -400,9 +400,9 @@ function buildFeatureColumnMarkdownInline(entry) {
   const omitted = items.length - cap.length;
   const suffix =
     omitted > 0
-      ? `<br/><font color='grey'>（另 ${omitted} 条见 HTML 报告）</font>`
+      ? `<br/><br/><font color='grey'>（另 ${omitted} 条见 HTML 报告）</font>`
       : "";
-  return `${lines.join("<br/>")}${suffix}`;
+  return `${lines.join("<br/><br/>")}${suffix}`;
 }
 
 /**
@@ -480,7 +480,9 @@ function buildFeishuProgramSummaryTableElement(scenarioRows) {
     element_id: "e2e_summary_tbl",
     margin: "2px 0px 0px 0px",
     page_size: pageSize,
-    row_height: "low",
+    // auto：行高随第二列多行内容增高；须配合 row_max_height，否则默认 max 124px 会裁切出单元格内滚动条（见飞书 table 文档）
+    row_height: "auto",
+    row_max_height: "999px",
     header_style: {
       text_align: "left",
       text_size: "normal",
@@ -511,10 +513,21 @@ function buildFeishuProgramSummaryTableElement(scenarioRows) {
   };
 }
 
+/** 场景色图例：卡片 markdown 用 `<font color>`；`msg_type: text` 时用纯文本避免标签原样输出。 */
+function scenarioColorLegendLine(htmlLegend) {
+  if (htmlLegend === false) {
+    return "红色-失败，绿色-成功，灰色-未执行";
+  }
+  return (
+    "<font color='red'>红色-失败</font>，<font color='green'>绿色-成功</font>，<font color='grey'>灰色-未执行</font>"
+  );
+}
+
 /**
  * @param {object | null} data
- * @param {{ failureTable?: boolean, nativeFeishuTable?: boolean }} [options]
+ * @param {{ failureTable?: boolean, nativeFeishuTable?: boolean, htmlLegend?: boolean }} [options]
  *   `failureTable` 为 `true` 时用表格式摘要；`nativeFeishuTable` 为 `true` 时**不**写入 GFM 表（由卡片 **`table`** 组件单独渲染，仅在有报告 URL 的 interactive 路径使用）。
+ *   `htmlLegend` 为 `false` 时图例不用 HTML 着色（用于纯文本 Webhook）。
  */
 function formatPlaywrightSummary(data, options = {}) {
   const failureTable = options.failureTable === true;
@@ -528,8 +541,10 @@ function formatPlaywrightSummary(data, options = {}) {
   if (block) {
     const { scenarioRows, N, failedProg } = block;
     const successProg = N - failedProg;
-    parts.push(`场景汇总：成功 ${successProg} 个，失败 ${failedProg} 个（共${N}个）`);
-    parts.push("红色-失败，绿色-成功，灰色-未执行");
+    parts.push(
+      `场景汇总：成功 **${successProg}** 个，失败 **${failedProg}** 个（共 **${N}** 个）`,
+    );
+    parts.push(scenarioColorLegendLine(options.htmlLegend));
     if (failureTable && !nativeFeishuTable) {
       parts.push(buildProgramSummaryMarkdownTable(scenarioRows));
     } else if (!failureTable) {
@@ -601,7 +616,7 @@ function formatPlaywrightSummary(data, options = {}) {
 }
 
 /**
- * @param {{ failureTable?: boolean }} [options] 与 `formatPlaywrightSummary` 的 `failureTable` 一致。
+ * @param {{ failureTable?: boolean, htmlLegend?: boolean }} [options] 与 `formatPlaywrightSummary` 的 `failureTable` / `htmlLegend` 一致。
  */
 function buildPlainText(options = {}) {
   const { path: jsonPath, data, broken } = loadPlaywrightReportObject();
@@ -741,7 +756,10 @@ function buildPayload() {
     return buildInteractiveCardPayload(reportUrl, md, tableEl);
   }
 
-  const truncated = truncateText(buildPlainText({ failureTable: false }), MAX_BODY_BYTES - 512);
+  const truncated = truncateText(
+    buildPlainText({ failureTable: false, htmlLegend: false }),
+    MAX_BODY_BYTES - 512,
+  );
   return {
     msg_type: "text",
     content: { text: truncated },
