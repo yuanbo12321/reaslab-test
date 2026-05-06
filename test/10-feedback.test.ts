@@ -4,13 +4,13 @@ import { E2E_GITHUB_PASSWORD, E2E_GITHUB_USERNAME } from "../common/global-setup
 import { navigateToHomeProjects } from "./helpers";
 
 /**
- * **用户场景 §11**：向 ReasLab 反馈意见（见 `docs/用户场景.md`）。
+ * **用户场景 §10**：向 ReasLab 反馈意见（见 `docs/用户场景.md`）。
  * 工作台左侧栏底部 **Feedback** → 打开 GitHub **`.../issues/new`**（或登录中转页）；若已进入可编辑 **new issue** 表单，则写入 **全英文** 标题与正文（**不**点击 **Create**）。无论是否到达表单页，均在 GitHub 流程页 **attach 全页截图** 到报告（CI 不强制 `issues/new`）。
  *
- * 编号 **P211**：用户场景 **§11**（与 `README` 中 `test:11` 约定一致）。
+ * 编号 **P211**：用户场景 **§10**（与 `README` 中 `test:10` 约定一致）。
  * GitHub 登录账号见 **`common/global-setup.ts`** 的 **`E2E_GITHUB_USERNAME`** / **`E2E_GITHUB_PASSWORD`**（仅用于进入可编辑表单）。
  *
- * 单文件调试：`pnpm run test:11:headed`
+ * 单文件调试：`pnpm run test:10:headed`
  *
  * **打开方式**：从 **Feedback** 读取 **`href`** 后 **`context.newPage()` + `goto`**（避免弹窗资源加载差异）。
  */
@@ -165,7 +165,7 @@ async function fillGithubNewIssueDraftEnglish(gh: Page, title: string, body: str
   await fillGithubIssueBody(gh, main, body);
 }
 
-test.describe("11. 向 ReasLab 反馈意见", () => {
+test.describe("10. 向 ReasLab 反馈意见", () => {
   test.setTimeout(180_000);
 
   test.beforeEach(async ({ page }) => {
@@ -179,7 +179,7 @@ test.describe("11. 向 ReasLab 反馈意见", () => {
     });
   });
 
-  test("11.1 打开 GitHub 草稿 Issue 并截图（不提交）", async ({ page }, testInfo) => {
+  test("10.1 打开 GitHub 草稿 Issue 并截图（不提交）", async ({ page }, testInfo) => {
     await navigateToHomeProjects(page);
 
     const feedback = page.getByRole("link", { name: "Feedback" });
@@ -213,7 +213,7 @@ test.describe("11. 向 ReasLab 反馈意见", () => {
       const body = [
         "Draft for automated test P211 (reaslab-test). **Do not click Create.**",
         "",
-        "- Test file: test/11-feedback.test.ts",
+        "- Test file: test/10-feedback.test.ts",
         "- Search prefix if needed: [E2E-P211-",
       ].join("\n");
 

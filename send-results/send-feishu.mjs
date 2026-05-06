@@ -150,7 +150,7 @@ function programKeyFromWalkName(fullName) {
   return TEST_FILE_TITLE_RE.test(first) ? first : null;
 }
 
-/** `test/10-project-list.test.ts` → `10-project-list`（飞书概要括号内短名）。 */
+/** `test/NN-*.test.ts` 基名 → 飞书概要括号内短名（如 `13-project-list`）。 */
 function shortSlugFromTestPath(fileKey) {
   const base = path.basename(fileKey).replace(/\.(test|spec)\.[cm]?[jt]sx?$/i, "");
   return base || fileKey;

@@ -11,13 +11,13 @@ import {
 } from "./helpers";
 
 /**
- * **用户场景 §10**：查看项目列表并管理项目（见 `docs/用户场景.md`）。
- * 覆盖：工作台 Projects 四标签、**My Projects** 列表（**不按关键字搜索**；仅在数行/点行前 **`fill("")` 清空残留筛选**，避免误 skip）、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。（**10.1 不新建项目**，依赖账号在 **My Projects** 下已有至少一个自有项目，由其它用例创建。）
- * **10.1** 不对单条项目确认归档/删除；**10.2** 固定执行：对 **My Projects** 下当前账号 **全部自有项目** **全选 → 归档 → 在「Archived」中永久删除**（见 `bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage`），并断言 **My Projects** 表格数据行为 0。
+ * **用户场景 §13**：查看项目列表并管理项目（见 `docs/用户场景.md`）。
+ * 覆盖：工作台 Projects 四标签、**My Projects** 列表（**不按关键字搜索**；仅在数行/点行前 **`fill("")` 清空残留筛选**，避免误 skip）、点击项目名进入 IDE、行内 Setup/Settings/Download/Copy/Rename/Archive、多选批量栏。（**13.1 不新建项目**，依赖账号在 **My Projects** 下已有至少一个自有项目，由其它用例创建。）
+ * **13.1** 不对单条项目确认归档/删除；**13.2** 固定执行：对 **My Projects** 下当前账号 **全部自有项目** **全选 → 归档 → 在「Archived」中永久删除**（见 `bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage`），并断言 **My Projects** 表格数据行为 0。
  *
  * 有界面调试：Playwright 使用 **`--headed`**（没有 `--head`）。例如：
- * `pnpm run test:10:headed`，或
- * `npx playwright test --config common/playwright.config.ts test/10-project-list.test.ts --headed`。
+ * `pnpm run test:13:headed`，或
+ * `npx playwright test --config common/playwright.config.ts test/13-project-list.test.ts --headed`。
  */
 /** 列表数据行内指向 IDE 的项目名链接（排除行内 Setup/Settings 等）。 */
 async function projectDisplayNameFromListRow(row: Locator): Promise<string> {
@@ -33,7 +33,7 @@ async function projectDisplayNameFromListRow(row: Locator): Promise<string> {
   return "";
 }
 
-test.describe("10. 项目列表查看及管理", () => {
+test.describe("13. 项目列表查看及管理", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(240_000);
 
@@ -48,7 +48,7 @@ test.describe("10. 项目列表查看及管理", () => {
     });
   });
 
-  test("10.1 四标签与行内操作", async ({ page }) => {
+  test("13.1 四标签与行内操作", async ({ page }) => {
     let projectName = "";
     await test.step("工作台 Projects：四标签与搜索框可见", async () => {
       await navigateToHomeProjects(page);
@@ -83,7 +83,7 @@ test.describe("10. 项目列表查看及管理", () => {
       if ((await rows.count()) === 0) {
         test.skip(
           true,
-          "My Projects 无自有项目：10.1 不新建项目，请先运行其它用例在本账号下创建至少一个项目。",
+          "My Projects 无自有项目：13.1 不新建项目，请先运行其它用例在本账号下创建至少一个项目。",
         );
       }
       const firstRow = rows.first();
@@ -141,7 +141,7 @@ test.describe("10. 项目列表查看及管理", () => {
     });
   });
 
-  test("10.2 删除My Projects所有项目", async ({ page }) => {
+  test("13.2 删除My Projects所有项目", async ({ page }) => {
     await test.step("My Projects：全选 → Archive → 确认（若有）→ Archived：全选 → Delete → 确认", async () => {
       await bulkArchiveAndPermanentlyDeleteAllMyProjectsOnProjectsPage(page);
     });

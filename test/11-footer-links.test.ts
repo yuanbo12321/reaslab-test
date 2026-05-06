@@ -3,10 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { absUrl } from "../common/global-setup";
 
 /**
- * **用户场景 §12**：页脚导航链接可正常跳转（见 `docs/用户场景.md`）。
+ * **用户场景 §11**：页脚导航链接可正常跳转（见 `docs/用户场景.md`）。
  * 覆盖：`app/home/footer.tsx` 中 **Templates** / **Resources** / **About** 各链接；页脚均为 **`target="_blank"`**，本用例通过 **`popup`** 断言目标页可达且 URL 符合预期。
  *
- * 单文件调试：`pnpm run test:12:headed`
+ * 单文件调试：`pnpm run test:11:headed`
  */
 async function gotoMarketingHome(page: Page): Promise<void> {
   let res = await page.goto(absUrl("/home"), { waitUntil: "domcontentloaded" });
@@ -62,11 +62,11 @@ function hostnameOneOf(...hosts: string[]): (u: string) => boolean {
   };
 }
 
-test.describe("12. 页脚导航链接", () => {
+test.describe("11. 页脚导航链接", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
   test.setTimeout(300_000);
 
-  test("12.1 检查模板/资源/关于", async ({ page }) => {
+  test("11.1 检查模板/资源/关于", async ({ page }) => {
     await gotoMarketingHome(page);
 
     await test.step("Templates · Optimization Modeling → /modeling-templates", async () => {

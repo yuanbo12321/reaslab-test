@@ -41,9 +41,10 @@ pnpm install
 | `test/07-optimizationTemplateModeling.test.ts` | `pnpm run test:07` | `pnpm run test:07:headed` |
 | `test/08-theoremTemplateMil.test.ts` | `pnpm run test:08` | `pnpm run test:08:headed` |
 | `test/09-modelingContestTemplate.test.ts` | `pnpm run test:09` | `pnpm run test:09:headed` |
-| `test/10-project-list.test.ts` | `pnpm run test:10` | `pnpm run test:10:headed` |
-| `test/11-feedback.test.ts` | `pnpm run test:11` | `pnpm run test:11:headed` |
-| `test/12-footer-links.test.ts` | `pnpm run test:12` | `pnpm run test:12:headed` |
+| `test/10-feedback.test.ts` | `pnpm run test:10` | `pnpm run test:10:headed` |
+| `test/11-footer-links.test.ts` | `pnpm run test:11` | `pnpm run test:11:headed` |
+| `test/12-latex.test.ts` | `pnpm run test:12` | `pnpm run test:12:headed` |
+| `test/13-project-list.test.ts` | `pnpm run test:13` | `pnpm run test:13:headed` |
 
 新增 **`test/`** 下的测试文件时，请在 **`package.json`** 按 **`test:<编号>`** 补成对脚本（无头 + `:headed`），`playwright` 命令里写路径如 **`test/05-foo.test.ts`**。
 
