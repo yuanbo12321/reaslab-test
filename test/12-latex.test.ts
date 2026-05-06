@@ -9,7 +9,7 @@ import {
   waitForFileTree,
 } from "./helpers";
 
-const E2E_LATEX_TEX = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "e2e_latex_minimal.tex");
+const TEST_UPLOAD_TEX = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "test_upload.tex");
 
 /** 在 Explore 中选根目录常见锚点（README）后，经 **Upload Files** 弹窗上传单文件（与 `reaslingoUploadFileForAiChat` 同源 UI）。 */
 async function uploadSingleFileToSelectedTreeDir(page: Page, absoluteFilePath: string): Promise<void> {
@@ -85,7 +85,7 @@ async function openTexPreviewThenCompileButton(page: Page): Promise<void> {
 
 /**
  * **用户场景 §12**：使用 LaTeX 文件（见 `docs/用户场景.md`）。
- * 依赖数学建模类项目（与 §5 相同 **`tryEnterModelingProjectIde`**）；上传 **`test/data/e2e_latex_minimal.tex`** → 打开 → 工具栏 **眼睛**（`editor-toolbar.tsx` + `TooltipIconButton`，无 `title`）打开侧栏 → **Compile** → 断言 PDF 区出现 **canvas**（`pdf-preview.tsx` / `data-pdf-presentation`）。
+ * 依赖数学建模类项目（与 §5 相同 **`tryEnterModelingProjectIde`**）；上传 **`test/data/test_upload.tex`** → 打开 → 工具栏 **眼睛**（`editor-toolbar.tsx` + `TooltipIconButton`，无 `title`）打开侧栏 → **Compile** → 断言 PDF 区出现 **canvas**（`pdf-preview.tsx` / `data-pdf-presentation`）。
  */
 test.describe("12. 使用 LaTeX 文件", () => {
   test.setTimeout(600_000);
@@ -105,13 +105,13 @@ test.describe("12. 使用 LaTeX 文件", () => {
     test.skip(!(await tryEnterModelingProjectIde(page)), MODELING_CH5_SKIP_MSG);
     await expect(page.getByTitle("Create New File")).toBeVisible({ timeout: 30_000 });
 
-    await test.step("Explore：上传 e2e_latex_minimal.tex 至项目根", async () => {
-      await uploadSingleFileToSelectedTreeDir(page, E2E_LATEX_TEX);
+    await test.step("Explore：上传 test_upload.tex 至项目根", async () => {
+      await uploadSingleFileToSelectedTreeDir(page, TEST_UPLOAD_TEX);
     });
 
     await test.step("文件树打开 .tex 标签页", async () => {
       const tree = page.locator(".ide-filetree").filter({ visible: true }).first();
-      const row = tree.getByRole("row", { name: /e2e_latex_minimal\.tex/i }).first();
+      const row = tree.getByRole("row", { name: /test_upload\.tex/i }).first();
       await expect(row).toBeVisible({ timeout: 180_000 });
       await row.click();
       await expect(visibleCmContent(page)).toBeVisible({ timeout: 60_000 });
